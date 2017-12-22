@@ -1,0 +1,621 @@
+<link rel="shortcut icon" href="">
+
+<div id="signDiv">
+	<center> <font size="4" face="verdana"><b id="usernametext">username:</b></font><input id="signDiv-username" type="text"></input>
+	<button id="signDiv-signIn">Let's Play!</button></center> 
+
+	<center id="Rulestext"> <font size="5" face="verdana"><p id="rules">Rules</p></font> <br/> 
+		<font size="3" face="verdana"><p id="rules">1.Collect Gold (gold pellets in the game)</p></font> <font size="2" face="verdana"><p id="rules">10 gold pellets will automatically be
+	changed for 1 landmine. These can then be used to attack other players. Landmines are timed meaning they only there for 30 seconds until they disappear.</p> </b> <p id="rules">Please note: although you can see your own
+	landmines, you will not be able to see other players landmines so be careful!</p></font> 
+
+	<font size="3" face="verdana"><p id="rules">2.Collect paint (brown pellets in the game)</p></font> 
+	<font size="2" face="verdana"><p id="rules">1 paint pellet will allow you to claim 1 piece of land/territory.   </p>
+	<font size="3" face="verdana"><p id="rules">3.Mark Land/territory</p></font> 
+	<font size="2" face="verdana"><p id="rules">The aim is to mark the most land/territory.<br/> Please note: Once you mark land/territory, There will be a constantly rotating black square across your territory . This square will
+	allow other players to steal aproximately 50% of your total territory thus ensure that you try and protect this at all times.<br/>
+	In order to steal another players territory, just touch there black square.</p>
+	<font size="3" face="verdana"><p id="rules">4.Sabbatage other players</p></font> 
+	<font size="2" face="verdana"><p id="rules">Plant landmines strategically inorder to take other players out of the game which will free up thier land which could be claimed by any other remaining players.</p></font> 
+
+	<font size="3" face="verdana"><p id="rules">5.Be number 1!</p></font> 
+	<font size="2" face="verdana"><p id="rules">This is pretty self-explanatory.</p></font> 
+	
+
+
+
+	 </center> 
+
+	 <center>
+	 	<b font size="5" id="endtext" style="display:none;">You died! you stepped on another players landmine. refresh the page to play again.</b>
+
+	 </center> 
+
+
+
+
+
+
+
+	
+</div>
+
+<div id="gameDiv" style="display:none;" >
+
+	<canvas id="ctx" width="600" height="600" style="position:absolute;left: 50%; width: 500px; margin-left: -200px;border:1px solid #000000;"></canvas>
+	<canvas id="ctxui" width="600" height="600" style="position:absolute;left: 50%; width: 500px; margin-left: -200px;border:1px solid #000000;"></canvas>
+	<canvas id="ctxleaderboard" width="600" height="600" style="position:absolute;left: 50%; width: 500px; margin-left: -200px;border:1px solid #000000;"></canvas>
+	<font size="5" face="verdana"><p id="rules">Controls</p></font>
+	<font size="3" face="verdana"><p id="rules">Move left - A <br/> Move right - D <br/> Move Up - W <br/> Move Down - S <br/> Plant Landmine - Space Bar <br/> Mark Land/Territory - right or left mouse click </p></font>
+
+
+</div>
+
+
+
+
+
+
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+	
+var socket=io();
+	var signDiv =document.getElementById('signDiv');
+	var signDivUsername=document.getElementById('signDiv-username');
+	var signDivSignIn=document.getElementById('signDiv-signIn');
+	var usernametext=document.getElementById('usernametext');
+	var end=document.getElementById('endtext');
+	var rules=document.getElementById('Rulestext');
+
+	signDivSignIn.onclick=function()
+	{
+		socket.emit('signIn',{username:signDivUsername.value});
+	}
+	socket.on('signInResponse',function(data){
+		if(data.success){
+			signDiv.style.display='none';
+			gameDiv.style.display='inline-block';
+		}
+		else
+			alert("Nickname taken, Please choose another nickname.")
+
+	});
+
+ 
+
+	//game
+	var ctx=document.getElementById("ctx").getContext("2d");
+	var ctxui=document.getElementById("ctxui").getContext("2d");
+	var ctxleaderboard=document.getElementById("ctxleaderboard").getContext("2d");
+	ctxui.font='18px Arial';
+	ctxleaderboard.font='20px Arial';
+
+
+
+
+	var Player=function(initPack)
+	{
+		var self={};
+		self.id=initPack.id;
+		self.number=initPack.number;
+		self.colour=initPack.colour;
+		self.resourceGold=initPack.resourceGold;
+		self.resourceLand=initPack.resourceLand;
+		self.x=initPack.x;
+		self.y=initPack.y;
+		self.resourceBombs=initPack.resourceBombs;
+		self.lose=initPack.lose;
+		self.landcount=initPack.landcount;
+		Player.list[self.id]=self;
+
+		return self;
+	}
+	Player.list={};
+
+	//MIGHT NEED RESOURCE CLASS
+
+	Resource = function (initPack)
+	{
+		var aresource={};
+		aresource.x=initPack.x;
+		aresource.y=initPack.y;
+		aresource.id=initPack.id;
+		aresource.color=initPack.color;
+		RESOURCE_LIST[aresource.id]=aresource;
+		return aresource;
+
+	}
+
+	RESOURCE_LIST={};
+
+	ResourceLand = function (initPack)
+	{
+		var aresourceland={};
+		aresourceland.x=initPack.x;
+		aresourceland.y=initPack.y;
+		aresourceland.id=initPack.id;
+		aresourceland.color=initPack.color;
+		RESOURCE_LIST_LAND[aresourceland.id]=aresourceland;
+		return aresourceland;
+
+	}
+	
+	RESOURCE_LIST_LAND={};
+
+	var Bomb=function(initPack){
+	var self={};
+	self.id=initPack.id;
+	self.y=initPack.y;
+	self.x=initPack.x;
+	self.timer=initPack.timer;
+	self.parent=initPack.parent;
+	self.toRemove=initPack.toRemove;
+	Bomb.list[self.id]=self;
+	return self;
+	}
+
+	Bomb.list={};
+
+	var Land=function(initPack){
+	var self={};
+	self.id=initPack.id;
+	self.y=initPack.y;
+	self.x=initPack.x;
+	self.parent=initPack.parent;
+	self.colour=initPack.colour;
+	Land.list[self.id]=self;
+	return self;
+	}
+
+	Land.list={};
+
+	
+
+	
+var selfId=null;
+
+	socket.on('init',function(data)
+	{
+		if(data.selfId)
+		{
+			selfId=data.selfId;
+		}
+
+		var i;
+			
+		for (i=0;i<data.player.length;i++)
+		{
+			new Player(data.player[i]);
+
+		}
+
+		var z;
+
+		for (z=0;z<data.bomb.length;z++)
+		{
+			new Bomb(data.bomb[z]);
+			
+
+		}
+
+		var d;
+
+		for(d=0; d< data.land.length; d ++)
+		{
+			
+			new Land(data.land[d]);
+		}
+	
+		
+		
+	});
+
+	socket.on('initres',function(data)
+	{
+		var i;
+		for(i=0; i< data.resource.length; i ++)
+		{
+
+			new Resource(data.resource[i]);
+		}
+
+		var d;
+		for(d=0; d< data.resourceland.length; d ++)
+		{
+
+			new ResourceLand(data.resourceland[d]);
+		}
+		
+	});
+
+
+	socket.on('update', function(data)
+	{
+		var i;
+		for(i=0; i< data.player.length; i ++)
+		{
+			var pack=data.player[i];
+			var p=Player.list[pack.id];
+			if(p){
+				if(pack.x!==undefined)
+					p.x=pack.x;
+				if(pack.y!==undefined)
+					p.y=pack.y;
+				if(pack.resourceBombs!==undefined)
+					p.resourceBombs=pack.resourceBombs;
+				if(pack.resourceGold!==undefined)
+					p.resourceGold=pack.resourceGold;
+				if(pack.resourceLand!==undefined)
+					p.resourceLand=pack.resourceLand;
+				if(pack.lose!==undefined)
+					p.lose=pack.lose;
+				if(pack.landcount!==undefined)
+					p.landcount=pack.landcount;
+						
+			}
+		}
+
+		for( i=0; i< data.bomb.length; i ++)
+		{
+			var pack=data.bomb[i];
+			var b=Bomb.list[data.bomb[i].id];
+			if(b){
+				if(b.x!==undefined)
+					b.x=pack.x;
+				if(b.y!==undefined)
+					b.y=pack.y;
+
+			}
+		}
+		for( i=0; i< data.land.length; i ++)
+		{
+		
+			var pack=data.land[i];
+			var b=Land.list[data.land[i].id];
+			if(b){
+				if(b.parent!==undefined)
+					b.parent=pack.parent;
+				if(b.colour!==undefined)
+					b.colour=pack.colour;
+
+			}
+		}
+	});
+
+	
+
+
+socket.on('remove',function(data){
+	for (var i=0; i<data.player.length;i++){
+		if(selfId==Player.list[data.player[i]].id)
+		{
+			drawlose();
+		}
+		
+		delete Player.list[data.player[i]];
+
+
+
+	}
+	for (var i=0; i<data.resource.length;i++){
+		delete RESOURCE_LIST[data.resource[i]];
+	}
+	for (var i=0; i<data.resourceland.length;i++){
+		delete RESOURCE_LIST_LAND[data.resourceland[i]];
+	}
+	for (var i=0; i<data.bomb.length;i++){
+		delete Bomb.list[data.bomb[i]];
+	}
+
+	
+	
+	
+})
+
+function compareNumbers(a, b) {
+  return b - a;
+}
+	//init
+
+	//update
+
+	//remove
+
+//leaderboard
+function compare(a, b) {
+  // Use toUpperCase() to ignore character casing
+  var genreA = a.landcount;
+  var genreB = b.landcount;
+
+ 
+  return genreB-genreA;
+}
+
+var drawleaderboard=function()
+{
+	ctxleaderboard.clearRect(0,0,600,600);
+	var tlist=[];
+	
+	for(var i in Player.list)
+	{
+		tlist.push(Player.list[i]);
+
+	}
+
+	tlist.sort(compare);
+
+	
+	var q=0;
+
+	for(var i in tlist)
+	{
+		q++;
+		
+		ctxleaderboard.save();
+		ctxleaderboard.fillStyle=tlist[i].colour;
+		ctxleaderboard.fillText(q+'. '+tlist[i].landcount,525,30+(i*20));
+		ctxleaderboard.restore();
+	
+	}
+	tlist=[];
+}
+
+
+//leaderboard
+
+var drawScoreGold=function(){
+
+	if(lastScoreGold===Player.list[selfId].resourceGold)
+		return;
+
+	lastScoreGold=Player.list[selfId].resourceGold;
+	ctxui.clearRect(0,0,130,30);
+	ctxui.save();
+	ctxui.fillStyle='black';
+	ctxui.font="20px verdana";
+	ctxui.fillText('Gold: '+lastScoreGold,10,30);
+	ctxui.restore();
+}
+var lastScoreGold=null;
+
+
+var drawScoreLandresource=function(){
+
+	if(lastScoreLandResource===Player.list[selfId].resourceLand)
+		return;
+
+	lastScoreLandResource=Player.list[selfId].resourceLand;
+	ctxui.clearRect(100,0,130,30);
+	ctxui.save();
+	ctxui.fillStyle='black';
+	ctxui.font="20px verdana";
+	ctxui.fillText('Paint: '+lastScoreLandResource,130,30);
+	ctxui.restore();
+}
+var lastScoreLandResource=null;
+
+
+var drawScoreBomb=function(){
+
+	if(lastScoreBombs===Player.list[selfId].resourceBombs)
+		return;
+	lastScoreBombs=Player.list[selfId].resourceBombs;
+	ctxui.clearRect(200,0,270,30);
+	ctxui.save();
+	ctxui.fillStyle='black';
+	ctxui.font="20px verdana";
+	ctxui.fillText('Bombs: '+lastScoreBombs,270,30);
+	ctxui.restore();
+}
+var lastScoreBombs=null;
+
+
+
+var drawScoreLand=function(){
+
+	if(lastScoreLand===Player.list[selfId].landcount)
+		return;
+	lastScoreLand=Player.list[selfId].landcount;
+	ctxui.clearRect(300,0,600,600);
+	ctxui.save();
+	ctxui.fillStyle='black';
+	ctxui.font="20px verdana";
+	ctxui.fillText('Land: '+lastScoreLand,300,30);
+	ctxui.restore();
+}
+
+
+var lastScoreLand=null;
+
+
+var drawBomb=function(bid,pid,number){
+
+	if(bid!=pid)
+	{
+		
+	}
+	else{
+		var x=Bomb.list[number].x-Player.list[selfId].x;
+		var y=Bomb.list[number].y-Player.list[selfId].y;
+
+		x+=300;
+		y+=300; 
+
+
+		ctx.save();
+		ctx.fillStyle='black';
+		ctx.fillRect(x-6,y-6,8,8);
+		ctx.restore();
+
+	}
+	
+}
+
+var drawlose=function()
+{
+	signDiv.style.display='inline-block';
+	signDivUsername.style.display='none';
+	signDivSignIn.style.display='none';
+	usernametext.style.display='none';
+	gameDiv.style.display='none';
+	rules.style.display='none';
+	end.style.display='inline-block';
+}
+
+
+
+setInterval(function()
+{
+	if(!selfId)
+		return;
+
+	drawScoreGold();
+	drawScoreBomb();
+	drawleaderboard();
+	drawScoreLandresource();
+
+
+	ctx.clearRect(0,0,600,600);
+	
+	
+ 	var px=Player.list[selfId].x;
+ 	var py=Player.list[selfId].y;
+
+ 	for(var i in Land.list)
+	{
+		var x=Land.list[i].x-px;
+		var y=Land.list[i].y-py;
+
+		x+=300;
+		y+=300;
+
+		ctx.save();
+		ctx.fillStyle=Land.list[i].colour;
+		ctx.fillRect(x,y,24,24); //24
+		ctx.restore();
+
+	}
+
+	for(var i in RESOURCE_LIST)
+	{
+
+		var x=RESOURCE_LIST[i].x-px;
+		var y=RESOURCE_LIST[i].y-py;
+
+		x+=300;
+		y+=300;
+		
+
+		ctx.save();
+		ctx.fillStyle='orange';
+		
+		
+		ctx.fillRect(x,y,4,4);
+		ctx.restore();
+
+	}
+
+	for(var i in RESOURCE_LIST_LAND)
+	{
+
+		var x=RESOURCE_LIST_LAND[i].x-px;
+		var y=RESOURCE_LIST_LAND[i].y-py;
+
+		x+=300;
+		y+=300;
+		
+
+		ctx.save();
+		ctx.fillStyle='Brown';
+		
+		
+		ctx.fillRect(x,y,4,4);
+		ctx.restore();
+
+	}
+
+	
+
+	
+	for(var i in Bomb.list)
+	{
+	
+		drawBomb(Bomb.list[i].parent,Player.list[selfId].id,i);
+
+	}
+
+	for(var i in Player.list)
+	{
+		var x=Player.list[i].x-px;
+		var y=Player.list[i].y-py;
+
+		x+=300;
+		y+=300;
+
+		ctx.save(); 
+		ctx.fillStyle='black';
+		ctx.fillRect(x-15,y-15,25,25);
+		ctx.restore();
+
+		ctx.save();
+		ctx.fillStyle=Player.list[i].colour;
+		ctx.fillRect(x-10,y-10,15,15);
+		ctx.restore();
+	}
+
+},40); //40
+
+	document.onkeydown= function(event)
+	{
+		if(event.keyCode===68) 
+			socket.emit('keyPress',{inputId:'right',state:true});
+		else if(event.keyCode===83)
+			socket.emit('keyPress',{inputId:'down',state:true});
+		else if(event.keyCode===65)
+			socket.emit('keyPress',{inputId:'left',state:true});
+		else if(event.keyCode===87)
+			socket.emit('keyPress',{inputId:'up',state:true});
+		else if(event.keyCode===32)
+			socket.emit('keyPress',{inputId:'mark',state:true});
+	}
+	document.onkeyup= function(event)
+	{
+		if(event.keyCode===68) 
+			socket.emit('keyPress',{inputId:'right',state:false});
+		else if(event.keyCode===83)
+			socket.emit('keyPress',{inputId:'down',state:false});
+		else if(event.keyCode===65)
+			socket.emit('keyPress',{inputId:'left',state:false});
+		else if(event.keyCode===87)
+			socket.emit('keyPress',{inputId:'up',state:false});
+		//else if(event.keyCode===32)
+			//socket.emit('keyPress',{inputId:'mark',state:false});
+	}
+
+
+	document.onmousedown=function(event){
+		socket.emit('keyPress',{inputId:'attack',state:true});
+	}
+	document.onmouseup=function(event){
+		socket.emit('keyPress',{inputId:'attack',state:false});
+	}
+	document.onmousemove=function(event){
+		var x= -300 + event.clientX-8;
+		var y= -300 + event.clientY-8;
+		var angle= Math.atan2(y,x)/Math.PI*180;
+		socket.emit('keyPress',{inputId:'mouseAngle',state:angle});
+	}
+
+	document.oncontextmenu=function(event){
+		event.preventDefault();
+	}
+
+
+
+
+	
+</script>
+
+
+
